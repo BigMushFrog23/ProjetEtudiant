@@ -253,9 +253,3 @@ This project is created for educational purposes as part of the BTS SIO SLAM cur
 
 **Jeremy Popov**
 BTS SIO SLAM - Promotion 2025/2026
-
----
-
-**Grade Estimation: 17-19/20**
-
-With a confident presentation and smooth demo, this project has all the elements for a top grade! 🎉
