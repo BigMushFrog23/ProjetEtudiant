@@ -238,44 +238,14 @@ See database schema above with foreign keys and cascade rules.
 6. Student tracks upcoming exams
 7. Student unlocks achievement badges
 
-## 🎓 Presentation Tips
-
-1. **Start with a Live Demo**
-   - Register a new user
-   - Add a subject (e.g., "Mathematics")
-   - Add chapters with different statuses
-   - Log a study session and show XP earned
-   - Show the dashboard updating in real-time
-
-2. **Highlight Technical Choices**
-   - "I chose the DAO pattern to separate database logic from business logic"
-   - "SQLite was selected for portability - no server setup needed"
-   - "BCrypt ensures password security with salted hashing"
-   - "JavaFX provides a modern, responsive desktop UI"
-
-3. **Discuss Architecture**
-   - Show the clear package structure
-   - Explain how DAOs abstract database operations
-   - Demonstrate the gamification service as business logic layer
-
-4. **Show the Code**
-   - Briefly show a DAO class to demonstrate CRUD
-   - Show the gamification logic for badge awards
-   - Highlight the database schema initialization
-
-5. **Future Vision**
-   - "This could evolve into a web/mobile platform"
-   - "We could add machine learning to predict study patterns"
-   - "Export features would allow data portability"
-
 ## 📜 License
 
 This project is created for educational purposes as part of the BTS SIO SLAM curriculum.
 
 ## 👤 Author
 
-**Your Name**
-BTS SIO SLAM - Promotion 2024/2025
+**Jeremy Popov**
+BTS SIO SLAM - Promotion 2025/2026
 
 ---
 
