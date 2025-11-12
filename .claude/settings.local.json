@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir)",
+      "Bash(mvn clean install:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
