@@ -112,6 +112,7 @@ public class LoginWindow {
                 // Open main application window
                 MainWindow mainWindow = new MainWindow(user);
                 mainWindow.show(stage);
+                mainWindow.refreshAll(); // Load all user data immediately
             } else {
                 showMessage(messageLabel, "Invalid username or password", Color.RED);
             }

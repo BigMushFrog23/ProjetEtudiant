@@ -23,10 +23,51 @@ public class SubjectsTab {
     private final TableView<Subject> table;
     private final ObservableList<Subject> subjects;
 
-    private static final String[] COLORS = {
-        "#e74c3c", "#3498db", "#2ecc71", "#f39c12", "#9b59b6",
-        "#1abc9c", "#e67e22", "#34495e", "#16a085", "#c0392b"
+    private static final String[][] COLOR_OPTIONS = {
+        {"Red", "#e74c3c"},
+        {"Blue", "#3498db"},
+        {"Green", "#2ecc71"},
+        {"Orange", "#f39c12"},
+        {"Purple", "#9b59b6"},
+        {"Turquoise", "#1abc9c"},
+        {"Carrot", "#e67e22"},
+        {"Dark Gray", "#34495e"},
+        {"Emerald", "#16a085"},
+        {"Crimson", "#c0392b"}
     };
+
+    // Helper class to display color name but store hex value
+    private static class ColorOption {
+        private final String name;
+        private final String hexValue;
+
+        public ColorOption(String name, String hexValue) {
+            this.name = name;
+            this.hexValue = hexValue;
+        }
+
+        public String getHexValue() {
+            return hexValue;
+        }
+
+        @Override
+        public String toString() {
+            return name; // This is what displays in the ComboBox
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj instanceof ColorOption) {
+                return hexValue.equals(((ColorOption) obj).hexValue);
+            }
+            return false;
+        }
+
+        @Override
+        public int hashCode() {
+            return hexValue.hashCode();
+        }
+    }
 
     public SubjectsTab(User currentUser, MainWindow mainWindow) {
         this.currentUser = currentUser;
@@ -34,6 +75,25 @@ public class SubjectsTab {
         this.subjectDAO = new SubjectDAO();
         this.subjects = FXCollections.observableArrayList();
         this.table = createTable();
+    }
+
+    // Helper method to get ColorOption from hex value
+    private ColorOption getColorOptionFromHex(String hexValue) {
+        for (String[] colorPair : COLOR_OPTIONS) {
+            if (colorPair[1].equals(hexValue)) {
+                return new ColorOption(colorPair[0], colorPair[1]);
+            }
+        }
+        return new ColorOption(COLOR_OPTIONS[0][0], COLOR_OPTIONS[0][1]); // Default to first color
+    }
+
+    // Helper method to create list of ColorOptions
+    private ObservableList<ColorOption> getColorOptions() {
+        ObservableList<ColorOption> options = FXCollections.observableArrayList();
+        for (String[] colorPair : COLOR_OPTIONS) {
+            options.add(new ColorOption(colorPair[0], colorPair[1]));
+        }
+        return options;
     }
 
     public VBox getContent() {
@@ -122,8 +182,8 @@ public class SubjectsTab {
         descField.setPromptText("Description");
         descField.setPrefRowCount(3);
 
-        ComboBox<String> colorCombo = new ComboBox<>(FXCollections.observableArrayList(COLORS));
-        colorCombo.setValue(COLORS[0]);
+        ComboBox<ColorOption> colorCombo = new ComboBox<>(getColorOptions());
+        colorCombo.setValue(colorCombo.getItems().get(0)); // Default to first color
 
         grid.add(new Label("Name:"), 0, 0);
         grid.add(nameField, 1, 0);
@@ -140,7 +200,7 @@ public class SubjectsTab {
                 subject.setUserId(currentUser.getId());
                 subject.setName(nameField.getText());
                 subject.setDescription(descField.getText());
-                subject.setColor(colorCombo.getValue());
+                subject.setColor(colorCombo.getValue().getHexValue());
                 return subject;
             }
             return null;
@@ -185,8 +245,8 @@ public class SubjectsTab {
         TextField nameField = new TextField(selected.getName());
         TextArea descField = new TextArea(selected.getDescription());
         descField.setPrefRowCount(3);
-        ComboBox<String> colorCombo = new ComboBox<>(FXCollections.observableArrayList(COLORS));
-        colorCombo.setValue(selected.getColor());
+        ComboBox<ColorOption> colorCombo = new ComboBox<>(getColorOptions());
+        colorCombo.setValue(getColorOptionFromHex(selected.getColor()));
 
         grid.add(new Label("Name:"), 0, 0);
         grid.add(nameField, 1, 0);
@@ -201,7 +261,7 @@ public class SubjectsTab {
             if (dialogButton == saveButtonType) {
                 selected.setName(nameField.getText());
                 selected.setDescription(descField.getText());
-                selected.setColor(colorCombo.getValue());
+                selected.setColor(colorCombo.getValue().getHexValue());
                 return selected;
             }
             return null;
