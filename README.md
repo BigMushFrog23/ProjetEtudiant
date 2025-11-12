@@ -90,8 +90,15 @@ user_badges (id, user_id, badge_type, earned_date) -> CASCADE DELETE
 - Maven (included in most IDEs)
 
 ### Option 1: Using Maven
+
+**If Maven is in your PATH:**
 ```bash
 mvn clean javafx:run
+```
+
+**If Maven is NOT in PATH (use full path):**
+```powershell
+& "C:\Maven\apache-maven-3.9.11\bin\mvn.cmd" clean javafx:run
 ```
 
 ### Option 2: Using IDE

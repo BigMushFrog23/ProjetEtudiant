@@ -36,8 +36,15 @@ Press `Ctrl+Shift+X`, search for these extensions, and install.
 ### Step 3: Let Maven Download Dependencies
 
 Open terminal in VS Code (`` Ctrl+` ``) and run:
+
+**If Maven is in your PATH:**
 ```bash
 mvn clean install
+```
+
+**If Maven is NOT in PATH (use full path):**
+```powershell
+& "C:\Maven\apache-maven-3.9.11\bin\mvn.cmd" clean install
 ```
 
 This will download all required libraries including JavaFX.
@@ -47,8 +54,15 @@ This will download all required libraries including JavaFX.
 ## ▶️ Running the Application
 
 ### Easiest Method: Use Maven
+
+**If Maven is in your PATH:**
 ```bash
 mvn javafx:run
+```
+
+**If Maven is NOT in PATH (use full path):**
+```powershell
+& "C:\Maven\apache-maven-3.9.11\bin\mvn.cmd" javafx:run
 ```
 
 This handles everything automatically!
@@ -85,10 +99,19 @@ Then: `Ctrl+Shift+P` → `Java: Clean Java Language Server Workspace`
 ## ✅ Quick Test
 
 After setup:
+
+**If Maven is in your PATH:**
 ```bash
 cd ProjetEtudiant
 mvn clean install
 mvn javafx:run
+```
+
+**If Maven is NOT in PATH:**
+```powershell
+cd ProjetEtudiant
+& "C:\Maven\apache-maven-3.9.11\bin\mvn.cmd" clean install
+& "C:\Maven\apache-maven-3.9.11\bin\mvn.cmd" javafx:run
 ```
 
 Application should launch! 🎉
