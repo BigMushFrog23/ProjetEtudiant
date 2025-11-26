@@ -1,0 +1,2187 @@
+================================================================================
+           GUIDE COMPLET D'APPRENTISSAGE - BTS BLANC
+           GAMIFIED STUDY TRACKER - Jeremy Popov
+           BTS SIO SLAM 2025/2026
+================================================================================
+
+TABLE DES MATIERES
+==================
+1. PRESENTATION GENERALE DU PROJET
+2. ARCHITECTURE ET STRUCTURE DES DOSSIERS
+3. TECHNOLOGIES UTILISEES
+4. FICHIER pom.xml - CONFIGURATION MAVEN
+5. LES MODELES (Model) - Couche Donnees
+6. LA BASE DE DONNEES - DatabaseManager
+7. LES DAO (Data Access Objects) - Couche Acces Donnees
+8. LE SERVICE - Couche Metier (GamificationService)
+9. L'INTERFACE UTILISATEUR (UI) - Couche Presentation
+10. FLUX DE DONNEES ET FONCTIONNEMENT GLOBAL
+11. DESIGN PATTERNS UTILISES
+12. VOCABULAIRE TECHNIQUE A CONNAITRE
+13. QUESTIONS FREQUENTES EN PRESENTATION
+
+================================================================================
+1. PRESENTATION GENERALE DU PROJET
+================================================================================
+
+NOM: Gamified Study Tracker (Traqueur d'etudes gamifie)
+OBJECTIF: Application de bureau pour suivre ses revisions avec un systeme
+          de gamification (XP, niveaux, badges) pour motiver l'etudiant.
+
+FONCTIONNALITES PRINCIPALES:
+- Authentification (inscription/connexion) avec mots de passe securises
+- Gestion des matieres (CRUD = Create, Read, Update, Delete)
+- Gestion des chapitres avec statut (Non commence, En cours, Termine)
+- Gestion des examens et deadlines
+- Enregistrement des sessions d'etude
+- Systeme de gamification: XP, niveaux, badges
+- Dashboard avec statistiques et graphiques
+
+================================================================================
+2. ARCHITECTURE ET STRUCTURE DES DOSSIERS
+================================================================================
+
+ProjetEtudiant/
+|
+|-- pom.xml                    <- Configuration Maven (dependances, compilation)
+|-- studytracker.db            <- Base de donnees SQLite (fichier)
+|-- README.md                  <- Documentation du projet
+|
+|-- src/main/java/com/studytracker/
+    |
+    |-- Main.java              <- POINT D'ENTREE de l'application
+    |
+    |-- model/                 <- MODELES (representation des donnees)
+    |   |-- User.java          <- Utilisateur
+    |   |-- Subject.java       <- Matiere
+    |   |-- Chapter.java       <- Chapitre
+    |   |-- Exam.java          <- Examen
+    |   |-- StudySession.java  <- Session d'etude
+    |   |-- Badge.java         <- Badge/Achievement
+    |
+    |-- database/              <- GESTION BASE DE DONNEES
+    |   |-- DatabaseManager.java <- Connexion et creation des tables
+    |
+    |-- dao/                   <- DATA ACCESS OBJECTS (acces aux donnees)
+    |   |-- UserDAO.java       <- Operations BDD sur les utilisateurs
+    |   |-- SubjectDAO.java    <- Operations BDD sur les matieres
+    |   |-- ChapterDAO.java    <- Operations BDD sur les chapitres
+    |   |-- ExamDAO.java       <- Operations BDD sur les examens
+    |   |-- StudySessionDAO.java <- Operations BDD sur les sessions
+    |
+    |-- service/               <- SERVICES (logique metier)
+    |   |-- GamificationService.java <- Gestion XP, niveaux, badges
+    |
+    |-- ui/                    <- INTERFACE UTILISATEUR
+        |-- LoginWindow.java   <- Fenetre de connexion
+        |-- MainWindow.java    <- Fenetre principale avec onglets
+        |
+        |-- tabs/              <- ONGLETS DE L'APPLICATION
+            |-- DashboardTab.java      <- Tableau de bord
+            |-- SubjectsTab.java       <- Gestion matieres
+            |-- ChaptersTab.java       <- Gestion chapitres
+            |-- ExamsTab.java          <- Gestion examens
+            |-- StudySessionsTab.java  <- Sessions d'etude
+
+================================================================================
+3. TECHNOLOGIES UTILISEES
+================================================================================
+
+LANGAGE: Java 25
+    - Langage de programmation oriente objet
+    - Version 25 = version tres recente avec fonctionnalites modernes
+
+FRAMEWORK UI: JavaFX 21
+    - Framework pour creer des interfaces graphiques desktop
+    - Composants: Button, Label, TextField, TableView, TabPane, etc.
+
+BASE DE DONNEES: SQLite 3.44
+    - Base de donnees legere stockee dans un seul fichier
+    - Pas besoin de serveur de BDD (contrairement a MySQL/PostgreSQL)
+    - Fichier: studytracker.db
+
+SECURITE: BCrypt 0.4
+    - Librairie pour hasher les mots de passe
+    - Hashage = transformation irreversible (on ne peut pas retrouver le MDP)
+
+OUTIL DE BUILD: Maven
+    - Gere les dependances (librairies externes)
+    - Compile le projet
+    - Fichier de config: pom.xml
+
+================================================================================
+4. FICHIER pom.xml - CONFIGURATION MAVEN
+================================================================================
+
+Le pom.xml definit la configuration du projet Maven.
+
+STRUCTURE EXPLIQUEE:
+--------------------
+
+<project>
+    <!-- Coordonnees du projet -->
+    <groupId>com.studytracker</groupId>     <- Identifiant de l'organisation
+    <artifactId>gamified-study-tracker</artifactId>  <- Nom du projet
+    <version>1.0-SNAPSHOT</version>         <- Version (SNAPSHOT = en developpement)
+
+    <properties>
+        <!-- Parametres de compilation -->
+        <maven.compiler.source>25</maven.compiler.source>  <- Version Java source
+        <maven.compiler.target>25</maven.compiler.target>  <- Version Java cible
+        <javafx.version>21.0.1</javafx.version>  <- Version JavaFX
+    </properties>
+
+    <dependencies>
+        <!-- Dependances = librairies externes -->
+
+        <!-- JavaFX Controls: boutons, labels, tables, etc. -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-controls</artifactId>
+        </dependency>
+
+        <!-- SQLite JDBC: pilote pour se connecter a SQLite -->
+        <dependency>
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+        </dependency>
+
+        <!-- BCrypt: hashage des mots de passe -->
+        <dependency>
+            <groupId>org.mindrot</groupId>
+            <artifactId>jbcrypt</artifactId>
+        </dependency>
+    </dependencies>
+</project>
+
+================================================================================
+5. LES MODELES (Model) - Couche Donnees
+================================================================================
+
+Les modeles representent les ENTITES de l'application (les "objets du monde reel").
+Ce sont des classes Java simples avec des attributs + getters/setters.
+
+--------------------------------------------------------------------------------
+5.1 User.java - UTILISATEUR
+--------------------------------------------------------------------------------
+
+package com.studytracker.model;
+
+import java.time.LocalDateTime;  // Classe Java pour gerer date + heure
+
+public class User {
+    // ATTRIBUTS (proprietes de l'utilisateur)
+    private int id;                        // Identifiant unique en BDD
+    private String username;               // Nom d'utilisateur
+    private String passwordHash;           // Mot de passe HASHE (jamais en clair!)
+    private int xp;                        // Points d'experience
+    private int level;                     // Niveau actuel
+    private int studyStreak;               // Jours consecutifs d'etude
+    private LocalDateTime lastStudyDate;   // Derniere date d'etude
+    private LocalDateTime createdAt;       // Date de creation du compte
+
+    // CONSTRUCTEUR SANS PARAMETRES
+    public User() {
+        this.xp = 0;              // XP initiale = 0
+        this.level = 1;           // Niveau initial = 1
+        this.studyStreak = 0;     // Pas de streak au debut
+        this.createdAt = LocalDateTime.now();  // Date actuelle
+    }
+
+    // CONSTRUCTEUR AVEC PARAMETRES
+    public User(int id, String username, String passwordHash) {
+        this();  // Appelle le constructeur sans parametres d'abord
+        this.id = id;
+        this.username = username;
+        this.passwordHash = passwordHash;
+    }
+
+    // GETTER = methode pour LIRE un attribut
+    public int getId() {
+        return id;
+    }
+
+    // SETTER = methode pour MODIFIER un attribut
+    public void setId(int id) {
+        this.id = id;  // "this" = l'objet actuel
+    }
+
+    // SETTER SPECIAL POUR XP: calcule automatiquement le niveau
+    public void setXp(int xp) {
+        this.xp = xp;
+        // Formule: 100 XP = 1 niveau
+        // Exemple: 250 XP -> (250/100)+1 = 3 -> Niveau 3
+        this.level = (xp / 100) + 1;
+    }
+
+    // Calcule l'XP necessaire pour le prochain niveau
+    public int getXpForNextLevel() {
+        return level * 100;  // Niveau 3 -> besoin de 300 XP total
+    }
+
+    // Calcule la progression vers le prochain niveau (0-100%)
+    public double getLevelProgress() {
+        int currentLevelXp = (level - 1) * 100;  // XP au debut du niveau actuel
+        int xpInCurrentLevel = xp - currentLevelXp;  // XP gagne dans ce niveau
+        return (xpInCurrentLevel / 100.0) * 100;  // Pourcentage
+    }
+}
+
+CONCEPTS IMPORTANTS:
+- Encapsulation: attributs PRIVES + getters/setters PUBLICS
+- this: reference a l'objet courant
+- Constructeur: methode speciale appelee lors de la creation de l'objet
+
+--------------------------------------------------------------------------------
+5.2 Subject.java - MATIERE
+--------------------------------------------------------------------------------
+
+public class Subject {
+    private int id;           // ID unique
+    private int userId;       // ID de l'utilisateur proprietaire (cle etrangere)
+    private String name;      // Nom de la matiere (ex: "Mathematiques")
+    private String description;  // Description
+    private String color;     // Couleur en hexadecimal (ex: "#3498db")
+
+    // Constructeur vide
+    public Subject() {}
+
+    // Constructeur complet
+    public Subject(int id, int userId, String name, String description, String color) {
+        this.id = id;
+        this.userId = userId;
+        this.name = name;
+        this.description = description;
+        this.color = color;
+    }
+
+    // toString() = methode qui retourne une representation textuelle de l'objet
+    // Utilisee quand on affiche l'objet dans une ComboBox par exemple
+    @Override  // Override = redefinir une methode de la classe parente (Object)
+    public String toString() {
+        return name;  // Affiche juste le nom de la matiere
+    }
+
+    // + getters et setters pour chaque attribut...
+}
+
+CONCEPT: CLES ETRANGERES
+- userId est une CLE ETRANGERE: il fait reference a un utilisateur
+- Ca permet de savoir A QUI appartient cette matiere
+- Relation: 1 User -> N Subjects (un utilisateur a plusieurs matieres)
+
+--------------------------------------------------------------------------------
+5.3 Chapter.java - CHAPITRE
+--------------------------------------------------------------------------------
+
+public class Chapter {
+    private int id;
+    private int subjectId;          // Cle etrangere vers Subject
+    private String name;
+    private String description;
+    private ChapterStatus status;   // Enum pour le statut
+    private int estimatedHours;     // Heures estimees pour finir
+
+    // ENUM = type special avec des valeurs predefinies
+    public enum ChapterStatus {
+        NOT_STARTED("Not Started", "#E74C3C"),  // Rouge
+        IN_PROGRESS("In Progress", "#F39C12"),  // Orange
+        COMPLETED("Completed", "#27AE60");      // Vert
+
+        private final String displayName;  // Nom affiche a l'utilisateur
+        private final String color;        // Couleur associee
+
+        // Constructeur de l'enum
+        ChapterStatus(String displayName, String color) {
+            this.displayName = displayName;
+            this.color = color;
+        }
+
+        public String getDisplayName() { return displayName; }
+        public String getColor() { return color; }
+    }
+
+    public Chapter() {
+        this.status = ChapterStatus.NOT_STARTED;  // Statut par defaut
+    }
+
+    @Override
+    public String toString() {
+        return name + " (" + status.getDisplayName() + ")";
+        // Exemple: "Algebre (In Progress)"
+    }
+}
+
+CONCEPT: ENUM (Enumeration)
+- Type qui definit un ensemble FIXE de valeurs possibles
+- Ici: un chapitre ne peut etre QUE dans 3 etats
+- Avantage: impossible d'avoir un statut invalide
+
+--------------------------------------------------------------------------------
+5.4 Exam.java - EXAMEN
+--------------------------------------------------------------------------------
+
+import java.time.LocalDate;              // Date sans heure
+import java.time.temporal.ChronoUnit;    // Pour calculer des differences de dates
+
+public class Exam {
+    private int id;
+    private int subjectId;       // Cle etrangere vers Subject
+    private String name;
+    private String description;
+    private LocalDate examDate;  // Date de l'examen
+    private boolean isCompleted; // L'examen est-il passe?
+
+    public Exam() {
+        this.isCompleted = false;
+    }
+
+    // Calcule le nombre de jours jusqu'a l'examen
+    public long getDaysUntil() {
+        // ChronoUnit.DAYS.between() = calcule jours entre 2 dates
+        return ChronoUnit.DAYS.between(LocalDate.now(), examDate);
+        // LocalDate.now() = date d'aujourd'hui
+    }
+
+    // Verifie si l'examen est dans les 7 prochains jours
+    public boolean isUpcoming() {
+        long days = getDaysUntil();
+        return days >= 0 && days <= 7;  // Entre 0 et 7 jours
+    }
+
+    // Verifie si l'examen est en retard (date passee et pas complete)
+    public boolean isOverdue() {
+        return getDaysUntil() < 0 && !isCompleted;
+    }
+}
+
+CONCEPT: LocalDate vs LocalDateTime
+- LocalDate: juste la date (2024-03-15)
+- LocalDateTime: date + heure (2024-03-15T14:30:00)
+
+--------------------------------------------------------------------------------
+5.5 StudySession.java - SESSION D'ETUDE
+--------------------------------------------------------------------------------
+
+public class StudySession {
+    private int id;
+    private int chapterId;          // Sur quel chapitre on a travaille
+    private int userId;             // Qui a etudie
+    private double hoursStudied;    // Nombre d'heures (decimal: 1.5h)
+    private LocalDateTime sessionDate;  // Quand
+    private String notes;           // Notes optionnelles
+    private int xpEarned;           // XP gagnee
+
+    public StudySession() {
+        this.sessionDate = LocalDateTime.now();  // Date actuelle par defaut
+    }
+
+    // Calcule l'XP basee sur les heures (10 XP par heure)
+    public void calculateXp() {
+        this.xpEarned = (int) (hoursStudied * 10);
+        // (int) = cast = conversion en entier (arrondi vers le bas)
+        // 1.5 heures -> 15 XP
+    }
+}
+
+--------------------------------------------------------------------------------
+5.6 Badge.java - BADGE/ACHIEVEMENT
+--------------------------------------------------------------------------------
+
+public class Badge {
+    private int id;
+    private String name;
+    private String description;
+    private String icon;        // Emoji
+    private BadgeType type;
+
+    // Les 8 badges disponibles
+    public enum BadgeType {
+        FIRST_STUDY("First Study", "Complete your first study session", "1F3AF"),
+        STUDY_STREAK_3("3-Day Streak", "Study for 3 days in a row", "1F525"),
+        STUDY_STREAK_7("7-Day Streak", "Study for 7 days in a row", "26A1"),
+        COMPLETED_5_CHAPTERS("Chapter Master", "Complete 5 chapters", "1F4DA"),
+        COMPLETED_10_CHAPTERS("Knowledge Seeker", "Complete 10 chapters", "1F3C6"),
+        LEVEL_5("Level 5", "Reach level 5", "2B50"),
+        LEVEL_10("Level 10", "Reach level 10", "1F48E"),
+        EARLY_BIRD("Early Bird", "Complete an exam before the deadline", "1F985");
+
+        private final String name;
+        private final String description;
+        private final String icon;
+
+        BadgeType(String name, String description, String icon) {
+            this.name = name;
+            this.description = description;
+            this.icon = icon;
+        }
+
+        public String getName() { return name; }
+        public String getDescription() { return description; }
+        public String getIcon() { return icon; }
+    }
+}
+
+================================================================================
+6. LA BASE DE DONNEES - DatabaseManager
+================================================================================
+
+Ce fichier gere la CONNEXION a la base de donnees et CREE les tables.
+
+package com.studytracker.database;
+
+import java.sql.Connection;       // Represente une connexion a la BDD
+import java.sql.DriverManager;    // Permet de creer des connexions
+import java.sql.SQLException;     // Exception pour les erreurs SQL
+import java.sql.Statement;        // Pour executer des requetes SQL
+
+public class DatabaseManager {
+    // URL de connexion: jdbc:sqlite:fichier.db
+    private static final String DB_URL = "jdbc:sqlite:studytracker.db";
+
+    // SINGLETON: une seule instance de cette classe
+    private static DatabaseManager instance;  // L'unique instance
+    private Connection connection;            // La connexion a la BDD
+
+    // CONSTRUCTEUR PRIVE (pour le pattern Singleton)
+    private DatabaseManager() {
+        try {
+            // 1. Charger le pilote JDBC SQLite
+            Class.forName("org.sqlite.JDBC");
+            // Class.forName() charge une classe par son nom
+            // Ca "active" le pilote SQLite
+
+            // 2. Etablir la connexion
+            connection = DriverManager.getConnection(DB_URL);
+            // DriverManager.getConnection() cree une connexion vers l'URL
+
+            // 3. Creer les tables si elles n'existent pas
+            initializeTables();
+
+        } catch (ClassNotFoundException e) {
+            // Le pilote SQLite n'est pas trouve
+            e.printStackTrace();
+            throw new RuntimeException("Failed to initialize database", e);
+        } catch (SQLException e) {
+            // Erreur SQL (connexion, syntaxe, etc.)
+            e.printStackTrace();
+            throw new RuntimeException("Failed to initialize database", e);
+        }
+    }
+
+    // METHODE SINGLETON: retourne l'unique instance
+    public static DatabaseManager getInstance() {
+        if (instance == null) {  // Si pas encore cree
+            instance = new DatabaseManager();  // Creer
+        }
+        return instance;  // Retourner l'instance
+    }
+
+    public Connection getConnection() {
+        return connection;
+    }
+
+    // CREATION DES TABLES
+    private void initializeTables() throws SQLException {
+        Statement stmt = connection.createStatement();
+        // Statement = objet pour executer des requetes SQL
+
+        // TABLE USERS (utilisateurs)
+        stmt.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                xp INTEGER DEFAULT 0,
+                level INTEGER DEFAULT 1,
+                study_streak INTEGER DEFAULT 0,
+                last_study_date TEXT,
+                created_at TEXT NOT NULL
+            )
+        """);
+        // CREATE TABLE IF NOT EXISTS = cree seulement si n'existe pas
+        // PRIMARY KEY = identifiant unique
+        // AUTOINCREMENT = la BDD genere automatiquement l'ID
+        // UNIQUE = pas de doublons
+        // NOT NULL = obligatoire
+        // DEFAULT = valeur par defaut
+
+        // TABLE SUBJECTS (matieres)
+        stmt.execute("""
+            CREATE TABLE IF NOT EXISTS subjects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT,
+                color TEXT,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """);
+        // FOREIGN KEY = cle etrangere, reference a une autre table
+        // ON DELETE CASCADE = si on supprime le user, ses subjects sont supprimes aussi
+
+        // TABLE CHAPTERS (chapitres)
+        stmt.execute("""
+            CREATE TABLE IF NOT EXISTS chapters (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                subject_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT,
+                status TEXT NOT NULL DEFAULT 'NOT_STARTED',
+                estimated_hours INTEGER DEFAULT 0,
+                FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+            )
+        """);
+
+        // TABLE EXAMS (examens)
+        stmt.execute("""
+            CREATE TABLE IF NOT EXISTS exams (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                subject_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT,
+                exam_date TEXT NOT NULL,
+                is_completed INTEGER DEFAULT 0,
+                FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+            )
+        """);
+        // INTEGER pour boolean: 0 = false, 1 = true
+
+        // TABLE STUDY_SESSIONS
+        stmt.execute("""
+            CREATE TABLE IF NOT EXISTS study_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chapter_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                hours_studied REAL NOT NULL,
+                session_date TEXT NOT NULL,
+                notes TEXT,
+                xp_earned INTEGER DEFAULT 0,
+                FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """);
+        // REAL = nombre decimal (comme double en Java)
+
+        // TABLE USER_BADGES (relation many-to-many)
+        stmt.execute("""
+            CREATE TABLE IF NOT EXISTS user_badges (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                badge_type TEXT NOT NULL,
+                earned_date TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                UNIQUE(user_id, badge_type)
+            )
+        """);
+        // UNIQUE(user_id, badge_type) = un user ne peut avoir qu'une fois chaque badge
+
+        stmt.close();  // Fermer le Statement quand on a fini
+    }
+
+    // Fermer la connexion proprement
+    public void close() {
+        try {
+            if (connection != null && !connection.isClosed()) {
+                connection.close();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+CONCEPTS IMPORTANTS:
+
+1. PATTERN SINGLETON:
+   - Une seule instance de la classe existe
+   - Constructeur PRIVE
+   - Methode getInstance() pour obtenir l'instance
+   - Pourquoi? On veut UNE SEULE connexion a la BDD
+
+2. TRY-CATCH:
+   - try { code risque } catch (Exception e) { gestion erreur }
+   - SQLException = erreur liee a SQL
+   - e.printStackTrace() = affiche l'erreur dans la console
+
+3. TEXT BLOCKS ("""):
+   - Java 15+ permet d'ecrire des String sur plusieurs lignes
+   - Pratique pour les requetes SQL longues
+
+================================================================================
+7. LES DAO (Data Access Objects) - Couche Acces Donnees
+================================================================================
+
+Les DAO contiennent TOUTES les operations SQL pour une entite.
+Ca separe la logique BDD du reste de l'application.
+
+--------------------------------------------------------------------------------
+7.1 UserDAO.java - Operations sur les utilisateurs
+--------------------------------------------------------------------------------
+
+package com.studytracker.dao;
+
+import com.studytracker.database.DatabaseManager;
+import com.studytracker.model.User;
+import org.mindrot.jbcrypt.BCrypt;  // Librairie de hashage
+
+import java.sql.*;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+public class UserDAO {
+    private final Connection connection;
+
+    public UserDAO() {
+        // Recupere la connexion depuis le Singleton
+        this.connection = DatabaseManager.getInstance().getConnection();
+    }
+
+    // ========== CREATE (Creer) ==========
+
+    public User create(String username, String password) throws SQLException {
+        // 1. Hasher le mot de passe avec BCrypt
+        String passwordHash = BCrypt.hashpw(password, BCrypt.gensalt());
+        // BCrypt.gensalt() = genere un "sel" aleatoire
+        // BCrypt.hashpw() = hashe le mot de passe avec le sel
+        // Resultat: "$2a$10$..." (60 caracteres)
+
+        // 2. Preparer la requete SQL
+        String sql = "INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)";
+        // ? = placeholder (parametre) pour eviter les injections SQL
+
+        // 3. Creer un PreparedStatement
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            // try-with-resources: ferme automatiquement stmt a la fin
+
+            stmt.setString(1, username);  // Remplace le 1er ?
+            stmt.setString(2, passwordHash);  // Remplace le 2eme ?
+            stmt.setString(3, LocalDateTime.now().toString());  // 3eme ?
+
+            // 4. Executer la requete
+            stmt.executeUpdate();  // executeUpdate() pour INSERT/UPDATE/DELETE
+
+            // 5. Recuperer l'ID genere
+            try (Statement idStmt = connection.createStatement();
+                 ResultSet rs = idStmt.executeQuery("SELECT last_insert_rowid()")) {
+                // last_insert_rowid() = fonction SQLite qui retourne le dernier ID
+                if (rs.next()) {
+                    return findById(rs.getInt(1));  // Retourne l'utilisateur complet
+                }
+            }
+        }
+        return null;
+    }
+
+    // ========== AUTHENTICATE (Authentifier) ==========
+
+    public User authenticate(String username, String password) throws SQLException {
+        String sql = "SELECT * FROM users WHERE username = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();  // executeQuery() pour SELECT
+            // ResultSet = resultat de la requete (comme un tableau)
+
+            if (rs.next()) {  // Si on trouve un utilisateur
+                String storedHash = rs.getString("password_hash");
+
+                // Verifier le mot de passe avec BCrypt
+                if (BCrypt.checkpw(password, storedHash)) {
+                    // checkpw() compare le MDP en clair avec le hash
+                    return mapResultSetToUser(rs);  // Convertir en objet User
+                }
+            }
+        }
+        return null;  // Echec d'authentification
+    }
+
+    // ========== READ (Lire) ==========
+
+    public User findById(int id) throws SQLException {
+        String sql = "SELECT * FROM users WHERE id = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, id);  // setInt pour les entiers
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return mapResultSetToUser(rs);
+            }
+        }
+        return null;
+    }
+
+    public User findByUsername(String username) throws SQLException {
+        String sql = "SELECT * FROM users WHERE username = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return mapResultSetToUser(rs);
+            }
+        }
+        return null;
+    }
+
+    public List<User> findAll() throws SQLException {
+        List<User> users = new ArrayList<>();
+        String sql = "SELECT * FROM users";
+
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {  // Tant qu'il y a des lignes
+                users.add(mapResultSetToUser(rs));
+            }
+        }
+        return users;
+    }
+
+    // ========== UPDATE (Mettre a jour) ==========
+
+    public void update(User user) throws SQLException {
+        String sql = "UPDATE users SET xp = ?, level = ?, study_streak = ?, last_study_date = ? WHERE id = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, user.getXp());
+            stmt.setInt(2, user.getLevel());
+            stmt.setInt(3, user.getStudyStreak());
+            stmt.setString(4, user.getLastStudyDate() != null ?
+                          user.getLastStudyDate().toString() : null);
+            // Operateur ternaire: condition ? siVrai : siFaux
+            stmt.setInt(5, user.getId());
+
+            stmt.executeUpdate();
+        }
+    }
+
+    // ========== DELETE (Supprimer) ==========
+
+    public void delete(int id) throws SQLException {
+        String sql = "DELETE FROM users WHERE id = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, id);
+            stmt.executeUpdate();
+        }
+    }
+
+    // ========== METHODES METIER SPECIFIQUES ==========
+
+    // Ajouter de l'XP a un utilisateur
+    public void addXp(int userId, int xp) throws SQLException {
+        User user = findById(userId);
+        if (user != null) {
+            user.setXp(user.getXp() + xp);  // Ajoute l'XP
+            update(user);  // Sauvegarde
+        }
+    }
+
+    // Mettre a jour le streak d'etude
+    public void updateStreak(int userId) throws SQLException {
+        User user = findById(userId);
+        if (user != null) {
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime lastStudy = user.getLastStudyDate();
+
+            if (lastStudy == null) {
+                // Premiere session d'etude
+                user.setStudyStreak(1);
+            } else {
+                // Calculer le nombre de jours depuis la derniere etude
+                long daysBetween = java.time.Duration.between(lastStudy, now).toDays();
+
+                if (daysBetween == 1) {
+                    // Jour consecutif -> increment le streak
+                    user.setStudyStreak(user.getStudyStreak() + 1);
+                } else if (daysBetween > 1) {
+                    // Plus d'un jour -> streak casse
+                    user.setStudyStreak(1);
+                }
+                // Si meme jour (daysBetween == 0), on ne change rien
+            }
+
+            user.setLastStudyDate(now);
+            update(user);
+        }
+    }
+
+    // ========== METHODE UTILITAIRE ==========
+
+    // Convertit un ResultSet en objet User
+    private User mapResultSetToUser(ResultSet rs) throws SQLException {
+        User user = new User();
+        user.setId(rs.getInt("id"));                   // Recupere la colonne "id"
+        user.setUsername(rs.getString("username"));    // Colonne "username"
+        user.setPasswordHash(rs.getString("password_hash"));
+        user.setXp(rs.getInt("xp"));
+        user.setLevel(rs.getInt("level"));
+        user.setStudyStreak(rs.getInt("study_streak"));
+
+        String lastStudyDateStr = rs.getString("last_study_date");
+        if (lastStudyDateStr != null) {
+            user.setLastStudyDate(LocalDateTime.parse(lastStudyDateStr));
+            // LocalDateTime.parse() convertit String -> LocalDateTime
+        }
+
+        String createdAtStr = rs.getString("created_at");
+        if (createdAtStr != null) {
+            user.setCreatedAt(LocalDateTime.parse(createdAtStr));
+        }
+
+        return user;
+    }
+}
+
+CONCEPTS IMPORTANTS DES DAO:
+
+1. PreparedStatement vs Statement:
+   - PreparedStatement: requete avec parametres (?), SECURISE contre injections SQL
+   - Statement: requete simple sans parametres
+
+2. executeQuery() vs executeUpdate():
+   - executeQuery(): pour SELECT, retourne ResultSet
+   - executeUpdate(): pour INSERT/UPDATE/DELETE, retourne nb lignes affectees
+
+3. ResultSet:
+   - Resultat d'un SELECT
+   - rs.next() avance au prochain resultat, retourne false si fini
+   - rs.getString("colonne"), rs.getInt("colonne") pour lire les valeurs
+
+4. try-with-resources:
+   - try (Resource r = ...) { } ferme automatiquement la ressource
+
+--------------------------------------------------------------------------------
+7.2 ChapterDAO.java - Avec statistiques avancees
+--------------------------------------------------------------------------------
+
+public class ChapterDAO {
+    // ... create, findById, update, delete similaires ...
+
+    // Statistiques de completion par matiere
+    public ChapterStats getStatsBySubjectId(int subjectId) throws SQLException {
+        String sql = """
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as in_progress,
+                SUM(CASE WHEN status = 'NOT_STARTED' THEN 1 ELSE 0 END) as not_started
+            FROM chapters WHERE subject_id = ?
+        """;
+        // CASE WHEN: equivalent de if/else en SQL
+        // SUM avec CASE: compte les lignes qui correspondent
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, subjectId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return new ChapterStats(
+                    rs.getInt("total"),
+                    rs.getInt("completed"),
+                    rs.getInt("in_progress"),
+                    rs.getInt("not_started")
+                );
+            }
+        }
+        return new ChapterStats(0, 0, 0, 0);
+    }
+
+    // CLASSE INTERNE pour les statistiques
+    public static class ChapterStats {
+        private final int total;
+        private final int completed;
+        private final int inProgress;
+        private final int notStarted;
+
+        public ChapterStats(int total, int completed, int inProgress, int notStarted) {
+            this.total = total;
+            this.completed = completed;
+            this.inProgress = inProgress;
+            this.notStarted = notStarted;
+        }
+
+        // Calcule le pourcentage de completion
+        public double getCompletionPercentage() {
+            return total > 0 ? (completed / (double) total) * 100 : 0;
+            // Attention: completed/total serait une division entiere!
+            // (double) force la conversion en decimal
+        }
+
+        // + getters...
+    }
+}
+
+--------------------------------------------------------------------------------
+7.3 ExamDAO.java - Avec jointures SQL
+--------------------------------------------------------------------------------
+
+public class ExamDAO {
+    // ... methodes CRUD basiques ...
+
+    // Trouver tous les examens d'un utilisateur
+    // Necessite une JOINTURE car exams est lie a subjects qui est lie a users
+    public List<Exam> findByUserId(int userId) throws SQLException {
+        List<Exam> exams = new ArrayList<>();
+        String sql = """
+            SELECT e.* FROM exams e
+            JOIN subjects s ON e.subject_id = s.id
+            WHERE s.user_id = ?
+            ORDER BY e.exam_date
+        """;
+        // JOIN: combine 2 tables selon une condition
+        // e.* = toutes les colonnes de la table exams
+        // ON e.subject_id = s.id: condition de jointure
+        // ORDER BY: trie par date d'examen
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, userId);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                exams.add(mapResultSetToExam(rs));
+            }
+        }
+        return exams;
+    }
+
+    // Trouver les examens des 7 prochains jours
+    public List<Exam> findUpcomingByUserId(int userId) throws SQLException {
+        String sql = """
+            SELECT e.* FROM exams e
+            JOIN subjects s ON e.subject_id = s.id
+            WHERE s.user_id = ? AND e.is_completed = 0
+            AND e.exam_date BETWEEN date('now') AND date('now', '+7 days')
+            ORDER BY e.exam_date
+        """;
+        // date('now') = date actuelle en SQLite
+        // date('now', '+7 days') = dans 7 jours
+        // BETWEEN: entre deux valeurs
+        // ...
+    }
+}
+
+================================================================================
+8. LE SERVICE - Couche Metier (GamificationService)
+================================================================================
+
+Le service contient la LOGIQUE METIER complexe.
+Ici: gestion des badges et des verifications.
+
+package com.studytracker.service;
+
+import com.studytracker.dao.ChapterDAO;
+import com.studytracker.dao.UserDAO;
+import com.studytracker.database.DatabaseManager;
+import com.studytracker.model.Badge;
+import com.studytracker.model.User;
+
+import java.sql.*;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+public class GamificationService {
+    private final Connection connection;
+    private final UserDAO userDAO;
+    private final ChapterDAO chapterDAO;
+
+    public GamificationService() {
+        this.connection = DatabaseManager.getInstance().getConnection();
+        this.userDAO = new UserDAO();
+        this.chapterDAO = new ChapterDAO();
+    }
+
+    // Attribuer un badge a un utilisateur
+    public void awardBadge(int userId, Badge.BadgeType badgeType) throws SQLException {
+        // Verifier si l'utilisateur a deja ce badge
+        if (hasBadge(userId, badgeType)) {
+            return;  // Ne rien faire si deja obtenu
+        }
+
+        String sql = "INSERT INTO user_badges (user_id, badge_type, earned_date) VALUES (?, ?, ?)";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, userId);
+            stmt.setString(2, badgeType.name());  // .name() retourne le nom de l'enum en String
+            stmt.setString(3, LocalDateTime.now().toString());
+            stmt.executeUpdate();
+        }
+    }
+
+    // Verifier si l'utilisateur possede un badge
+    public boolean hasBadge(int userId, Badge.BadgeType badgeType) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM user_badges WHERE user_id = ? AND badge_type = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, userId);
+            stmt.setString(2, badgeType.name());
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getInt(1) > 0;  // True si au moins 1 resultat
+            }
+        }
+        return false;
+    }
+
+    // METHODE PRINCIPALE: verifier et attribuer tous les badges eligibles
+    public void checkAndAwardBadges(int userId) throws SQLException {
+        User user = userDAO.findById(userId);
+        if (user == null) return;
+
+        // Badge "First Study": premiere session (XP >= 10)
+        if (user.getXp() >= 10 && !hasBadge(userId, Badge.BadgeType.FIRST_STUDY)) {
+            awardBadge(userId, Badge.BadgeType.FIRST_STUDY);
+        }
+
+        // Badge "3-Day Streak": 3 jours consecutifs
+        if (user.getStudyStreak() >= 3 && !hasBadge(userId, Badge.BadgeType.STUDY_STREAK_3)) {
+            awardBadge(userId, Badge.BadgeType.STUDY_STREAK_3);
+        }
+
+        // Badge "7-Day Streak": 7 jours consecutifs
+        if (user.getStudyStreak() >= 7 && !hasBadge(userId, Badge.BadgeType.STUDY_STREAK_7)) {
+            awardBadge(userId, Badge.BadgeType.STUDY_STREAK_7);
+        }
+
+        // Badges de chapitres completes
+        int completedChapters = chapterDAO.countCompletedByUserId(userId);
+
+        if (completedChapters >= 5 && !hasBadge(userId, Badge.BadgeType.COMPLETED_5_CHAPTERS)) {
+            awardBadge(userId, Badge.BadgeType.COMPLETED_5_CHAPTERS);
+        }
+
+        if (completedChapters >= 10 && !hasBadge(userId, Badge.BadgeType.COMPLETED_10_CHAPTERS)) {
+            awardBadge(userId, Badge.BadgeType.COMPLETED_10_CHAPTERS);
+        }
+
+        // Badges de niveau
+        if (user.getLevel() >= 5 && !hasBadge(userId, Badge.BadgeType.LEVEL_5)) {
+            awardBadge(userId, Badge.BadgeType.LEVEL_5);
+        }
+
+        if (user.getLevel() >= 10 && !hasBadge(userId, Badge.BadgeType.LEVEL_10)) {
+            awardBadge(userId, Badge.BadgeType.LEVEL_10);
+        }
+    }
+
+    // Recuperer tous les badges avec leur statut (debloque ou non)
+    public List<BadgeInfo> getAllBadgesWithStatus(int userId) throws SQLException {
+        List<BadgeInfo> badgeInfos = new ArrayList<>();
+
+        // Parcourir tous les types de badges
+        for (Badge.BadgeType type : Badge.BadgeType.values()) {
+            // Badge.BadgeType.values() retourne un tableau de tous les enums
+            boolean unlocked = hasBadge(userId, type);
+            badgeInfos.add(new BadgeInfo(type, unlocked));
+        }
+
+        return badgeInfos;
+    }
+
+    // CLASSE INTERNE pour afficher les badges
+    public static class BadgeInfo {
+        private final Badge.BadgeType type;
+        private final boolean unlocked;
+
+        public BadgeInfo(Badge.BadgeType type, boolean unlocked) {
+            this.type = type;
+            this.unlocked = unlocked;
+        }
+
+        public Badge.BadgeType getType() { return type; }
+        public boolean isUnlocked() { return unlocked; }
+
+        // Retourne l'icone ou un cadenas si verrouille
+        public String getIcon() {
+            return unlocked ? type.getIcon() : "Locked";
+        }
+
+        public String getName() { return type.getName(); }
+        public String getDescription() { return type.getDescription(); }
+    }
+}
+
+================================================================================
+9. L'INTERFACE UTILISATEUR (UI) - Couche Presentation
+================================================================================
+
+L'UI utilise JavaFX pour creer l'interface graphique.
+
+--------------------------------------------------------------------------------
+9.1 Main.java - Point d'entree
+--------------------------------------------------------------------------------
+
+package com.studytracker;
+
+import com.studytracker.database.DatabaseManager;
+import com.studytracker.ui.LoginWindow;
+import javafx.application.Application;  // Classe de base JavaFX
+import javafx.stage.Stage;              // Fenetre principale
+
+// extends Application: herite de la classe Application de JavaFX
+public class Main extends Application {
+
+    // start() est appele automatiquement quand l'application demarre
+    @Override  // On redefinit la methode de la classe parente
+    public void start(Stage primaryStage) {
+        // 1. Initialiser la base de donnees (cree les tables si besoin)
+        DatabaseManager.getInstance();
+
+        // 2. Afficher la fenetre de connexion
+        LoginWindow loginWindow = new LoginWindow();
+        loginWindow.show(primaryStage);
+        // Stage = fenetre dans JavaFX
+    }
+
+    // stop() est appele quand l'application se ferme
+    @Override
+    public void stop() {
+        // Fermer proprement la connexion BDD
+        DatabaseManager.getInstance().close();
+    }
+
+    // Methode main: point d'entree du programme Java
+    public static void main(String[] args) {
+        launch(args);  // Demarre l'application JavaFX
+        // launch() appelle start() automatiquement
+    }
+}
+
+--------------------------------------------------------------------------------
+9.2 LoginWindow.java - Fenetre de connexion
+--------------------------------------------------------------------------------
+
+package com.studytracker.ui;
+
+import com.studytracker.dao.UserDAO;
+import com.studytracker.model.User;
+import javafx.geometry.Insets;    // Marges interieures
+import javafx.geometry.Pos;       // Alignement
+import javafx.scene.Scene;        // Contenu d'une fenetre
+import javafx.scene.control.*;    // Boutons, labels, champs texte...
+import javafx.scene.layout.*;     // Conteneurs (VBox, HBox, GridPane...)
+import javafx.scene.paint.Color;  // Couleurs
+import javafx.scene.text.Font;    // Polices
+import javafx.scene.text.FontWeight;
+import javafx.stage.Stage;
+
+import java.sql.SQLException;
+
+public class LoginWindow {
+    private final UserDAO userDAO;
+
+    public LoginWindow() {
+        this.userDAO = new UserDAO();
+    }
+
+    public void show(Stage stage) {
+        // CONTENEUR PRINCIPAL: VBox (elements empiles verticalement)
+        VBox root = new VBox(20);  // 20 = espacement entre elements
+        root.setPadding(new Insets(40));  // Marges de 40px
+        root.setAlignment(Pos.CENTER);    // Centre le contenu
+        root.setBackground(new Background(new BackgroundFill(
+            Color.rgb(240, 248, 255),  // Couleur RGB
+            CornerRadii.EMPTY,         // Pas de coins arrondis
+            Insets.EMPTY               // Pas de marges
+        )));
+
+        // TITRE
+        Label titleLabel = new Label("Gamified Study Tracker");
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 28));
+        // Font.font(famille, style, taille)
+        titleLabel.setTextFill(Color.rgb(52, 73, 94));  // Couleur du texte
+
+        // SOUS-TITRE
+        Label subtitleLabel = new Label("Track your progress, earn XP, unlock achievements!");
+        subtitleLabel.setFont(Font.font("System", 14));
+        subtitleLabel.setTextFill(Color.rgb(127, 140, 141));
+
+        // FORMULAIRE: GridPane (grille pour aligner les elements)
+        GridPane loginForm = new GridPane();
+        loginForm.setHgap(10);  // Espacement horizontal
+        loginForm.setVgap(15);  // Espacement vertical
+        loginForm.setAlignment(Pos.CENTER);
+        loginForm.setMaxWidth(400);
+
+        // Champ username
+        Label usernameLabel = new Label("Username:");
+        usernameLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 14));
+        TextField usernameField = new TextField();
+        usernameField.setPromptText("Enter username");  // Placeholder
+        usernameField.setPrefWidth(250);
+
+        // Champ password (masque)
+        Label passwordLabel = new Label("Password:");
+        passwordLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 14));
+        PasswordField passwordField = new PasswordField();  // Masque la saisie
+        passwordField.setPromptText("Enter password");
+        passwordField.setPrefWidth(250);
+
+        // Ajout des elements a la grille
+        loginForm.add(usernameLabel, 0, 0);   // Colonne 0, Ligne 0
+        loginForm.add(usernameField, 1, 0);   // Colonne 1, Ligne 0
+        loginForm.add(passwordLabel, 0, 1);   // Colonne 0, Ligne 1
+        loginForm.add(passwordField, 1, 1);   // Colonne 1, Ligne 1
+
+        // BOUTONS: HBox (elements alignes horizontalement)
+        HBox buttonBox = new HBox(15);
+        buttonBox.setAlignment(Pos.CENTER);
+
+        Button loginButton = new Button("Login");
+        // Style CSS inline
+        loginButton.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 30;");
+        // -fx-background-color: couleur de fond
+        // -fx-text-fill: couleur du texte
+        // -fx-padding: marges internes (haut/bas gauche/droite)
+        loginButton.setPrefWidth(120);
+
+        Button registerButton = new Button("Register");
+        registerButton.setStyle("-fx-background-color: #2ecc71; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 30;");
+        registerButton.setPrefWidth(120);
+
+        buttonBox.getChildren().addAll(loginButton, registerButton);
+
+        // Label pour les messages d'erreur/succes
+        Label messageLabel = new Label();
+        messageLabel.setFont(Font.font("System", 12));
+
+        // EVENEMENTS (actions sur les boutons)
+        loginButton.setOnAction(e ->
+            handleLogin(usernameField.getText(), passwordField.getText(), stage, messageLabel)
+        );
+        // setOnAction: definit ce qui se passe quand on clique
+        // e = l'evenement de clic
+        // -> = lambda expression (fonction anonyme)
+
+        registerButton.setOnAction(e ->
+            handleRegister(usernameField.getText(), passwordField.getText(), messageLabel)
+        );
+
+        // Permet de se connecter avec la touche Entree
+        passwordField.setOnAction(e ->
+            handleLogin(usernameField.getText(), passwordField.getText(), stage, messageLabel)
+        );
+
+        // Ajouter tous les elements au conteneur principal
+        root.getChildren().addAll(titleLabel, subtitleLabel, loginForm, buttonBox, messageLabel);
+
+        // SCENE: le contenu de la fenetre
+        Scene scene = new Scene(root, 600, 500);  // largeur, hauteur
+        stage.setScene(scene);
+        stage.setTitle("Study Tracker - Login");
+        stage.setResizable(false);  // Empeche le redimensionnement
+        stage.show();  // Affiche la fenetre
+    }
+
+    // Gere la connexion
+    private void handleLogin(String username, String password, Stage stage, Label messageLabel) {
+        // Validation basique
+        if (username.isEmpty() || password.isEmpty()) {
+            showMessage(messageLabel, "Please enter username and password", Color.RED);
+            return;  // Arrete la methode
+        }
+
+        try {
+            // Tenter l'authentification
+            User user = userDAO.authenticate(username, password);
+
+            if (user != null) {  // Succes
+                showMessage(messageLabel, "Login successful! Welcome " + username, Color.GREEN);
+
+                // Ouvrir la fenetre principale
+                MainWindow mainWindow = new MainWindow(user);
+                mainWindow.show(stage);
+                mainWindow.refreshAll();  // Charger les donnees
+            } else {  // Echec
+                showMessage(messageLabel, "Invalid username or password", Color.RED);
+            }
+        } catch (SQLException ex) {
+            showMessage(messageLabel, "Database error: " + ex.getMessage(), Color.RED);
+        }
+    }
+
+    // Gere l'inscription
+    private void handleRegister(String username, String password, Label messageLabel) {
+        if (username.isEmpty() || password.isEmpty()) {
+            showMessage(messageLabel, "Please enter username and password", Color.RED);
+            return;
+        }
+
+        if (password.length() < 4) {
+            showMessage(messageLabel, "Password must be at least 4 characters", Color.RED);
+            return;
+        }
+
+        try {
+            // Verifier si le username existe deja
+            if (userDAO.findByUsername(username) != null) {
+                showMessage(messageLabel, "Username already exists", Color.RED);
+                return;
+            }
+
+            // Creer l'utilisateur
+            User user = userDAO.create(username, password);
+            if (user != null) {
+                showMessage(messageLabel, "Registration successful! You can now login", Color.GREEN);
+            } else {
+                showMessage(messageLabel, "Registration failed", Color.RED);
+            }
+        } catch (SQLException ex) {
+            showMessage(messageLabel, "Database error: " + ex.getMessage(), Color.RED);
+        }
+    }
+
+    // Methode utilitaire pour afficher un message
+    private void showMessage(Label label, String message, Color color) {
+        label.setText(message);
+        label.setTextFill(color);
+    }
+}
+
+COMPOSANTS JAVAFX UTILISES:
+- Stage: la fenetre
+- Scene: le contenu de la fenetre
+- VBox: conteneur vertical
+- HBox: conteneur horizontal
+- GridPane: grille
+- Label: texte statique
+- TextField: champ de saisie
+- PasswordField: champ mot de passe (masque)
+- Button: bouton cliquable
+
+--------------------------------------------------------------------------------
+9.3 MainWindow.java - Fenetre principale avec onglets
+--------------------------------------------------------------------------------
+
+public class MainWindow {
+    private final User currentUser;
+    private DashboardTab dashboardTab;
+    private SubjectsTab subjectsTab;
+    // ... autres tabs
+    private Label levelLabel;
+
+    public MainWindow(User currentUser) {
+        this.currentUser = currentUser;
+    }
+
+    public void show(Stage stage) {
+        // BORDERPANE: conteneur avec 5 zones (top, bottom, left, right, center)
+        BorderPane root = new BorderPane();
+
+        // En-tete en haut
+        HBox header = createHeader();
+        root.setTop(header);
+
+        // TABPANE: conteneur a onglets
+        TabPane tabPane = new TabPane();
+        tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        // UNAVAILABLE = on ne peut pas fermer les onglets
+
+        // Creer les onglets
+        dashboardTab = new DashboardTab(currentUser);
+        subjectsTab = new SubjectsTab(currentUser, this);
+        chaptersTab = new ChaptersTab(currentUser, this);
+        examsTab = new ExamsTab(currentUser, this);
+        studySessionsTab = new StudySessionsTab(currentUser, this);
+
+        // Creer les Tab avec leur contenu
+        Tab dashTab = new Tab("Dashboard", dashboardTab.getContent());
+        Tab subjTab = new Tab("Subjects", subjectsTab.getContent());
+        Tab chapTab = new Tab("Chapters", chaptersTab.getContent());
+        Tab examTab = new Tab("Exams", examsTab.getContent());
+        Tab sessTab = new Tab("Study Sessions", studySessionsTab.getContent());
+
+        tabPane.getTabs().addAll(dashTab, subjTab, chapTab, examTab, sessTab);
+
+        // Listener: detecte quand on change d'onglet
+        tabPane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, newTab) -> {
+            if (newTab == dashTab) {
+                dashboardTab.refresh();  // Rafraichit le dashboard
+            }
+        });
+        // addListener = ajouter un ecouteur d'evenement
+        // (obs, oldTab, newTab) -> lambda avec 3 parametres
+
+        root.setCenter(tabPane);
+
+        Scene scene = new Scene(root, 1200, 800);
+        stage.setScene(scene);
+        stage.setTitle("Study Tracker - " + currentUser.getUsername());
+        stage.show();
+
+        dashboardTab.refresh();  // Chargement initial
+    }
+
+    private HBox createHeader() {
+        HBox header = new HBox(20);
+        header.setPadding(new Insets(15, 20, 15, 20));
+        // Style avec degrade
+        header.setStyle("-fx-background-color: linear-gradient(to right, #667eea 0%, #764ba2 100%);");
+        // linear-gradient: degrade de couleur
+
+        Label titleLabel = new Label("Study Tracker");
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
+        titleLabel.setTextFill(Color.WHITE);
+
+        // Region = espace vide qui s'etend
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        // Priority.ALWAYS = prend tout l'espace disponible
+
+        // Infos utilisateur
+        VBox userInfo = new VBox(2);
+        userInfo.setAlignment(Pos.CENTER_RIGHT);
+
+        Label usernameLabel = new Label("User: " + currentUser.getUsername());
+        usernameLabel.setTextFill(Color.WHITE);
+
+        levelLabel = new Label("Level " + currentUser.getLevel() + " | XP: " + currentUser.getXp());
+        levelLabel.setTextFill(Color.rgb(255, 255, 255, 0.9));  // Blanc 90% opaque
+
+        userInfo.getChildren().addAll(usernameLabel, levelLabel);
+        header.getChildren().addAll(titleLabel, spacer, userInfo);
+
+        return header;
+    }
+
+    // Rafraichit tous les onglets (apres une modification)
+    public void refreshAll() {
+        updateHeader();
+        subjectsTab.refresh();
+        chaptersTab.refresh();
+        examsTab.refresh();
+        studySessionsTab.refresh();
+        dashboardTab.refresh();
+    }
+
+    private void updateHeader() {
+        if (levelLabel != null) {
+            levelLabel.setText("Level " + currentUser.getLevel() + " | XP: " + currentUser.getXp());
+        }
+    }
+
+    public User getCurrentUser() {
+        return currentUser;
+    }
+}
+
+--------------------------------------------------------------------------------
+9.4 DashboardTab.java - Tableau de bord avec graphiques
+--------------------------------------------------------------------------------
+
+public class DashboardTab {
+    private final User currentUser;
+    private final ChapterDAO chapterDAO;
+    private final SubjectDAO subjectDAO;
+    private final ExamDAO examDAO;
+    private final StudySessionDAO sessionDAO;
+    private final GamificationService gamificationService;
+    private final VBox content;
+
+    public DashboardTab(User currentUser) {
+        this.currentUser = currentUser;
+        this.chapterDAO = new ChapterDAO();
+        this.subjectDAO = new SubjectDAO();
+        this.examDAO = new ExamDAO();
+        this.sessionDAO = new StudySessionDAO();
+        this.gamificationService = new GamificationService();
+        this.content = new VBox(20);
+        initializeContent();
+    }
+
+    public VBox getContent() {
+        return content;
+    }
+
+    public void refresh() {
+        try {
+            content.getChildren().clear();  // Vide le contenu
+
+            // Titre
+            Label titleLabel = new Label("Dashboard");
+            titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
+
+            // ScrollPane: zone scrollable
+            ScrollPane scrollPane = new ScrollPane();
+            scrollPane.setFitToWidth(true);  // S'adapte a la largeur
+
+            VBox scrollContent = new VBox(20);
+            scrollContent.setPadding(new Insets(10));
+
+            // Cartes statistiques
+            HBox statsRow = createStatsCards();
+
+            // Graphique + gamification
+            HBox chartsRow = new HBox(20);
+            VBox progressBox = createProgressChart();
+            VBox gamificationBox = createGamificationDisplay();
+            HBox.setHgrow(progressBox, Priority.ALWAYS);
+            chartsRow.getChildren().addAll(progressBox, gamificationBox);
+
+            // Examens a venir
+            VBox examsBox = createUpcomingExams();
+
+            // Badges
+            VBox badgesBox = createBadgesDisplay();
+
+            scrollContent.getChildren().addAll(statsRow, chartsRow, examsBox, badgesBox);
+            scrollPane.setContent(scrollContent);
+
+            content.getChildren().addAll(titleLabel, scrollPane);
+        } catch (SQLException ex) {
+            content.getChildren().add(new Label("Error: " + ex.getMessage()));
+        }
+    }
+
+    // Cree les cartes de statistiques
+    private HBox createStatsCards() throws SQLException {
+        HBox statsRow = new HBox(15);
+        statsRow.setAlignment(Pos.CENTER);
+
+        // Nombre de matieres
+        int totalSubjects = subjectDAO.countByUserId(currentUser.getId());
+        VBox subjectCard = createStatCard("Subjects", String.valueOf(totalSubjects), "#3498db");
+
+        // Chapitres termines
+        int completedChapters = chapterDAO.countCompletedByUserId(currentUser.getId());
+        VBox chaptersCard = createStatCard("Completed Chapters", String.valueOf(completedChapters), "#27ae60");
+
+        // Heures totales d'etude
+        double totalHours = sessionDAO.getTotalHoursByUserId(currentUser.getId());
+        VBox hoursCard = createStatCard("Study Hours", String.format("%.1f", totalHours), "#e67e22");
+        // String.format("%.1f", x) = formate avec 1 decimale
+
+        // Streak
+        VBox streakCard = createStatCard("Day Streak", String.valueOf(currentUser.getStudyStreak()), "#e74c3c");
+
+        statsRow.getChildren().addAll(subjectCard, chaptersCard, hoursCard, streakCard);
+        return statsRow;
+    }
+
+    private VBox createStatCard(String label, String value, String color) {
+        VBox card = new VBox(10);
+        card.setAlignment(Pos.CENTER);
+        card.setPadding(new Insets(20));
+        card.setStyle("-fx-background-color: white; -fx-border-color: " + color +
+                "; -fx-border-width: 2; -fx-background-radius: 10; -fx-border-radius: 10;");
+        card.setPrefWidth(200);
+
+        Label valueLabel = new Label(value);
+        valueLabel.setFont(Font.font("System", FontWeight.BOLD, 32));
+        valueLabel.setStyle("-fx-text-fill: " + color + ";");
+
+        Label textLabel = new Label(label);
+        textLabel.setStyle("-fx-text-fill: #7f8c8d;");
+
+        card.getChildren().addAll(valueLabel, textLabel);
+        return card;
+    }
+
+    // Graphique circulaire de progression
+    private VBox createProgressChart() throws SQLException {
+        VBox box = new VBox(10);
+        box.setPadding(new Insets(15));
+        box.setStyle("-fx-background-color: white; -fx-border-color: #bdc3c7; -fx-border-width: 2;");
+
+        Label titleLabel = new Label("Chapter Progress");
+        titleLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 16));
+
+        // PIECHART: graphique en camembert
+        PieChart pieChart = new PieChart();
+        pieChart.setTitle("Overall Progress");
+
+        // Recuperer les statistiques
+        List<Subject> subjects = subjectDAO.findByUserId(currentUser.getId());
+
+        int totalCompleted = 0;
+        int totalInProgress = 0;
+        int totalNotStarted = 0;
+
+        for (Subject subject : subjects) {
+            ChapterDAO.ChapterStats stats = chapterDAO.getStatsBySubjectId(subject.getId());
+            totalCompleted += stats.getCompleted();
+            totalInProgress += stats.getInProgress();
+            totalNotStarted += stats.getNotStarted();
+        }
+
+        // Ajouter les donnees au graphique
+        if (totalCompleted > 0) {
+            pieChart.getData().add(new PieChart.Data("Completed (" + totalCompleted + ")", totalCompleted));
+        }
+        if (totalInProgress > 0) {
+            pieChart.getData().add(new PieChart.Data("In Progress (" + totalInProgress + ")", totalInProgress));
+        }
+        if (totalNotStarted > 0) {
+            pieChart.getData().add(new PieChart.Data("Not Started (" + totalNotStarted + ")", totalNotStarted));
+        }
+
+        box.getChildren().addAll(titleLabel, pieChart);
+        return box;
+    }
+
+    // Affichage du niveau et XP
+    private VBox createGamificationDisplay() {
+        VBox box = new VBox(15);
+        box.setPadding(new Insets(20));
+        box.setStyle("-fx-background-color: linear-gradient(to bottom, #667eea, #764ba2);");
+        box.setPrefWidth(350);
+        box.setAlignment(Pos.CENTER);
+
+        Label levelLabel = new Label("Level " + currentUser.getLevel());
+        levelLabel.setFont(Font.font("System", FontWeight.BOLD, 48));
+        levelLabel.setTextFill(Color.WHITE);
+
+        // Calcul de la progression
+        int currentLevelXp = (currentUser.getLevel() - 1) * 100;
+        int xpInCurrentLevel = currentUser.getXp() - currentLevelXp;
+
+        Label xpLabel = new Label(xpInCurrentLevel + " / 100 XP");
+        xpLabel.setTextFill(Color.rgb(255, 255, 255, 0.9));
+
+        // PROGRESSBAR: barre de progression
+        ProgressBar xpBar = new ProgressBar(xpInCurrentLevel / 100.0);
+        // ProgressBar attend une valeur entre 0.0 et 1.0
+        xpBar.setPrefWidth(280);
+        xpBar.setStyle("-fx-accent: #2ecc71;");  // Couleur de la barre
+
+        box.getChildren().addAll(levelLabel, xpLabel, xpBar);
+        return box;
+    }
+
+    // Affichage des badges
+    private VBox createBadgesDisplay() throws SQLException {
+        VBox box = new VBox(15);
+        box.setPadding(new Insets(15));
+        box.setStyle("-fx-background-color: white; -fx-border-color: #bdc3c7; -fx-border-width: 2;");
+
+        Label titleLabel = new Label("Achievements");
+        titleLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 16));
+
+        // Recuperer tous les badges avec leur statut
+        List<GamificationService.BadgeInfo> badges = gamificationService.getAllBadgesWithStatus(currentUser.getId());
+
+        // FLOWPANE: conteneur qui fait passer les elements a la ligne
+        FlowPane badgesFlow = new FlowPane(15, 15);  // gaps horizontal et vertical
+        badgesFlow.setPadding(new Insets(10));
+
+        for (GamificationService.BadgeInfo badgeInfo : badges) {
+            VBox badgeCard = new VBox(8);
+            badgeCard.setAlignment(Pos.CENTER);
+            badgeCard.setPadding(new Insets(15));
+            badgeCard.setPrefWidth(140);
+
+            // Style different si debloque ou non
+            String borderColor = badgeInfo.isUnlocked() ? "#2ecc71" : "#bdc3c7";
+            String bgColor = badgeInfo.isUnlocked() ? "#d5f4e6" : "#ecf0f1";
+            badgeCard.setStyle("-fx-border-color: " + borderColor + "; -fx-border-width: 2; " +
+                             "-fx-background-color: " + bgColor + ";");
+
+            Label iconLabel = new Label(badgeInfo.getIcon());
+            iconLabel.setFont(Font.font(48));
+
+            Label nameLabel = new Label(badgeInfo.getName());
+            nameLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 12));
+
+            Label descLabel = new Label(badgeInfo.getDescription());
+            descLabel.setStyle("-fx-text-fill: #7f8c8d;");
+
+            badgeCard.getChildren().addAll(iconLabel, nameLabel, descLabel);
+
+            // Opacite reduite si verrouille
+            if (!badgeInfo.isUnlocked()) {
+                badgeCard.setOpacity(0.5);
+            }
+
+            badgesFlow.getChildren().add(badgeCard);
+        }
+
+        box.getChildren().addAll(titleLabel, badgesFlow);
+        return box;
+    }
+}
+
+--------------------------------------------------------------------------------
+9.5 SubjectsTab.java - Gestion des matieres avec TableView
+--------------------------------------------------------------------------------
+
+public class SubjectsTab {
+    private final User currentUser;
+    private final MainWindow mainWindow;
+    private final SubjectDAO subjectDAO;
+    private final TableView<Subject> table;
+    private final ObservableList<Subject> subjects;
+    // ObservableList: liste qui notifie la TableView quand elle change
+
+    public SubjectsTab(User currentUser, MainWindow mainWindow) {
+        this.currentUser = currentUser;
+        this.mainWindow = mainWindow;
+        this.subjectDAO = new SubjectDAO();
+        this.subjects = FXCollections.observableArrayList();
+        // FXCollections.observableArrayList() cree une ObservableList vide
+        this.table = createTable();
+    }
+
+    public VBox getContent() {
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+
+        Label titleLabel = new Label("Manage Subjects");
+        titleLabel.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+
+        // Boutons
+        HBox buttonBox = new HBox(10);
+        Button addButton = new Button("Add Subject");
+        Button editButton = new Button("Edit");
+        Button deleteButton = new Button("Delete");
+
+        buttonBox.getChildren().addAll(addButton, editButton, deleteButton);
+
+        // Actions des boutons
+        addButton.setOnAction(e -> showAddDialog());
+        editButton.setOnAction(e -> showEditDialog());
+        deleteButton.setOnAction(e -> deleteSelected());
+
+        content.getChildren().addAll(titleLabel, buttonBox, table);
+        VBox.setVgrow(table, Priority.ALWAYS);  // Table prend l'espace restant
+
+        return content;
+    }
+
+    private TableView<Subject> createTable() {
+        TableView<Subject> table = new TableView<>();
+        table.setItems(subjects);  // Lie la table a l'ObservableList
+
+        // COLONNES
+        TableColumn<Subject, String> nameCol = new TableColumn<>("Name");
+        // PropertyValueFactory: lie la colonne a un getter du modele
+        nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
+        // "name" -> appelle getName() sur chaque Subject
+        nameCol.setPrefWidth(200);
+
+        TableColumn<Subject, String> descCol = new TableColumn<>("Description");
+        descCol.setCellValueFactory(new PropertyValueFactory<>("description"));
+        descCol.setPrefWidth(400);
+
+        TableColumn<Subject, String> colorCol = new TableColumn<>("Color");
+        colorCol.setCellValueFactory(new PropertyValueFactory<>("color"));
+        colorCol.setPrefWidth(100);
+        // CellFactory personnalisee pour afficher la couleur
+        colorCol.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(String color, boolean empty) {
+                super.updateItem(color, empty);
+                if (empty || color == null) {
+                    setGraphic(null);
+                } else {
+                    Region colorBox = new Region();
+                    colorBox.setPrefSize(60, 20);
+                    colorBox.setStyle("-fx-background-color: " + color + ";");
+                    setGraphic(colorBox);  // Affiche un rectangle colore
+                }
+            }
+        });
+
+        table.getColumns().addAll(nameCol, descCol, colorCol);
+        return table;
+    }
+
+    // Dialog pour ajouter une matiere
+    private void showAddDialog() {
+        // DIALOG: fenetre modale (bloque l'application)
+        Dialog<Subject> dialog = new Dialog<>();
+        dialog.setTitle("Add Subject");
+        dialog.setHeaderText("Enter subject details");
+
+        // Boutons du dialog
+        ButtonType saveButtonType = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, ButtonType.CANCEL);
+
+        // Formulaire
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20));
+
+        TextField nameField = new TextField();
+        nameField.setPromptText("Subject name");
+
+        TextArea descField = new TextArea();
+        descField.setPromptText("Description");
+        descField.setPrefRowCount(3);
+
+        ComboBox<String> colorCombo = new ComboBox<>();
+        colorCombo.getItems().addAll("Red", "Blue", "Green", "Orange");
+
+        grid.add(new Label("Name:"), 0, 0);
+        grid.add(nameField, 1, 0);
+        grid.add(new Label("Description:"), 0, 1);
+        grid.add(descField, 1, 1);
+        grid.add(new Label("Color:"), 0, 2);
+        grid.add(colorCombo, 1, 2);
+
+        dialog.getDialogPane().setContent(grid);
+
+        // ResultConverter: convertit le resultat du dialog
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == saveButtonType) {
+                Subject subject = new Subject();
+                subject.setUserId(currentUser.getId());
+                subject.setName(nameField.getText());
+                subject.setDescription(descField.getText());
+                subject.setColor(getColorHex(colorCombo.getValue()));
+                return subject;
+            }
+            return null;
+        });
+
+        // Afficher et attendre le resultat
+        dialog.showAndWait().ifPresent(subject -> {
+            // ifPresent: execute le code seulement si un resultat existe
+            if (subject.getName().isEmpty()) {
+                showAlert("Name is required", Alert.AlertType.ERROR);
+                return;
+            }
+
+            try {
+                subjectDAO.create(subject);
+                refresh();
+                mainWindow.refreshAll();
+                showAlert("Subject added!", Alert.AlertType.INFORMATION);
+            } catch (SQLException ex) {
+                showAlert("Error: " + ex.getMessage(), Alert.AlertType.ERROR);
+            }
+        });
+    }
+
+    private void deleteSelected() {
+        Subject selected = table.getSelectionModel().getSelectedItem();
+        // getSelectedItem() retourne l'element selectionne ou null
+
+        if (selected == null) {
+            showAlert("Please select a subject", Alert.AlertType.WARNING);
+            return;
+        }
+
+        // Demande de confirmation
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Confirm Delete");
+        confirm.setHeaderText("Delete: " + selected.getName());
+        confirm.setContentText("This will delete all chapters and exams. Continue?");
+
+        confirm.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                try {
+                    subjectDAO.delete(selected.getId());
+                    refresh();
+                    mainWindow.refreshAll();
+                } catch (SQLException ex) {
+                    showAlert("Error: " + ex.getMessage(), Alert.AlertType.ERROR);
+                }
+            }
+        });
+    }
+
+    public void refresh() {
+        try {
+            subjects.clear();  // Vide la liste
+            subjects.addAll(subjectDAO.findByUserId(currentUser.getId()));  // Recharge
+            // La TableView se met a jour automatiquement
+        } catch (SQLException ex) {
+            showAlert("Error loading subjects: " + ex.getMessage(), Alert.AlertType.ERROR);
+        }
+    }
+
+    private void showAlert(String message, Alert.AlertType type) {
+        Alert alert = new Alert(type);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+}
+
+--------------------------------------------------------------------------------
+9.6 StudySessionsTab.java - Enregistrement des sessions et XP
+--------------------------------------------------------------------------------
+
+public class StudySessionsTab {
+    // ... attributs similaires ...
+
+    private void showAddDialog() {
+        try {
+            // Recuperer tous les chapitres de l'utilisateur
+            List<Subject> userSubjects = subjectDAO.findByUserId(currentUser.getId());
+            List<Chapter> allChapters = new ArrayList<>();
+            for (Subject subject : userSubjects) {
+                allChapters.addAll(chapterDAO.findBySubjectId(subject.getId()));
+            }
+
+            if (allChapters.isEmpty()) {
+                showAlert("Create a chapter first!", Alert.AlertType.WARNING);
+                return;
+            }
+
+            Dialog<StudySession> dialog = new Dialog<>();
+            dialog.setTitle("Log Study Session");
+
+            ButtonType saveButtonType = new ButtonType("Save & Earn XP", ButtonBar.ButtonData.OK_DONE);
+            dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, ButtonType.CANCEL);
+
+            GridPane grid = new GridPane();
+            grid.setHgap(10);
+            grid.setVgap(10);
+            grid.setPadding(new Insets(20));
+
+            ComboBox<Chapter> chapterCombo = new ComboBox<>(FXCollections.observableArrayList(allChapters));
+            chapterCombo.setPromptText("Select chapter");
+
+            // SPINNER: selecteur numerique avec fleches
+            Spinner<Double> hoursSpinner = new Spinner<>(0.5, 24.0, 1.0, 0.5);
+            // min, max, valeur initiale, increment
+            hoursSpinner.setEditable(true);  // On peut taper une valeur
+
+            TextArea notesField = new TextArea();
+            notesField.setPromptText("Notes");
+            notesField.setPrefRowCount(4);
+
+            Label xpPreviewLabel = new Label();
+            xpPreviewLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #27ae60;");
+
+            // LISTENER sur le spinner: met a jour l'apercu XP
+            hoursSpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
+                int xp = (int) (newVal * 10);
+                xpPreviewLabel.setText("You will earn: +" + xp + " XP");
+            });
+            xpPreviewLabel.setText("You will earn: +10 XP");
+
+            grid.add(new Label("Chapter:"), 0, 0);
+            grid.add(chapterCombo, 1, 0);
+            grid.add(new Label("Hours:"), 0, 1);
+            grid.add(hoursSpinner, 1, 1);
+            grid.add(xpPreviewLabel, 1, 2);
+            grid.add(new Label("Notes:"), 0, 3);
+            grid.add(notesField, 1, 3);
+
+            dialog.getDialogPane().setContent(grid);
+
+            dialog.setResultConverter(dialogButton -> {
+                if (dialogButton == saveButtonType && chapterCombo.getValue() != null) {
+                    StudySession session = new StudySession();
+                    session.setChapterId(chapterCombo.getValue().getId());
+                    session.setUserId(currentUser.getId());
+                    session.setHoursStudied(hoursSpinner.getValue());
+                    session.setNotes(notesField.getText());
+                    session.calculateXp();  // Calcule l'XP
+                    return session;
+                }
+                return null;
+            });
+
+            dialog.showAndWait().ifPresent(session -> {
+                try {
+                    // 1. Sauvegarder la session
+                    sessionDAO.create(session);
+
+                    // 2. Mettre le chapitre "En cours" si "Non commence"
+                    Chapter chapter = chapterDAO.findById(session.getChapterId());
+                    if (chapter != null && chapter.getStatus() == Chapter.ChapterStatus.NOT_STARTED) {
+                        chapter.setStatus(Chapter.ChapterStatus.IN_PROGRESS);
+                        chapterDAO.update(chapter);
+                    }
+
+                    // 3. Donner l'XP a l'utilisateur
+                    userDAO.addXp(currentUser.getId(), session.getXpEarned());
+
+                    // 4. Mettre a jour le streak
+                    userDAO.updateStreak(currentUser.getId());
+
+                    // 5. Verifier les nouveaux badges
+                    gamificationService.checkAndAwardBadges(currentUser.getId());
+
+                    // 6. Mettre a jour l'objet currentUser
+                    User updatedUser = userDAO.findById(currentUser.getId());
+                    currentUser.setXp(updatedUser.getXp());
+                    currentUser.setLevel(updatedUser.getLevel());
+                    currentUser.setStudyStreak(updatedUser.getStudyStreak());
+
+                    // 7. Rafraichir l'interface
+                    refresh();
+                    mainWindow.refreshAll();
+
+                    showAlert("Session logged! +" + session.getXpEarned() + " XP earned!",
+                             Alert.AlertType.INFORMATION);
+                } catch (SQLException ex) {
+                    showAlert("Error: " + ex.getMessage(), Alert.AlertType.ERROR);
+                }
+            });
+        } catch (SQLException ex) {
+            showAlert("Error: " + ex.getMessage(), Alert.AlertType.ERROR);
+        }
+    }
+}
+
+================================================================================
+10. FLUX DE DONNEES ET FONCTIONNEMENT GLOBAL
+================================================================================
+
+DEMARRAGE DE L'APPLICATION:
+1. main() -> launch() -> start()
+2. DatabaseManager.getInstance() cree la BDD si necessaire
+3. LoginWindow s'affiche
+
+CONNEXION UTILISATEUR:
+1. User entre username + password
+2. LoginWindow.handleLogin() appelle UserDAO.authenticate()
+3. BCrypt verifie le hash du mot de passe
+4. Si OK: MainWindow s'ouvre avec l'User
+5. MainWindow.refreshAll() charge toutes les donnees
+
+AJOUT D'UNE SESSION D'ETUDE:
+1. User remplit le formulaire (chapitre, heures)
+2. StudySession.calculateXp() calcule l'XP (heures * 10)
+3. StudySessionDAO.create() sauvegarde en BDD
+4. UserDAO.addXp() ajoute l'XP au user
+5. User.setXp() recalcule le niveau
+6. UserDAO.updateStreak() met a jour le streak
+7. GamificationService.checkAndAwardBadges() verifie les badges
+8. MainWindow.refreshAll() met a jour l'affichage
+
+SCHEMA RELATIONNEL:
+users (1) ----< (N) subjects (1) ----< (N) chapters
+                        |
+                        v
+                   (N) exams
+
+users (1) ----< (N) study_sessions (N) >---- (1) chapters
+users (1) ----< (N) user_badges
+
+================================================================================
+11. DESIGN PATTERNS UTILISES
+================================================================================
+
+1. SINGLETON (DatabaseManager)
+   - Une seule instance
+   - Acces global via getInstance()
+   - Utilite: une seule connexion BDD
+
+2. DAO (Data Access Object)
+   - Separe la logique BDD du reste
+   - Un DAO par entite
+   - Facilite la maintenance et les tests
+
+3. MVC (Model-View-Controller) implicite
+   - Model: classes du package model
+   - View: classes du package ui
+   - Controller: DAOs + Services
+
+4. OBSERVER (implicite avec JavaFX)
+   - ObservableList notifie TableView
+   - Listeners sur les changements d'onglet
+
+================================================================================
+12. VOCABULAIRE TECHNIQUE A CONNAITRE
+================================================================================
+
+JAVA:
+- Classe: modele pour creer des objets
+- Objet: instance d'une classe
+- Attribut: variable d'une classe
+- Methode: fonction d'une classe
+- Constructeur: methode speciale pour creer un objet
+- Getter/Setter: methodes pour lire/modifier un attribut
+- Encapsulation: cacher les attributs (private) + exposer via getters/setters
+- Heritage: extends (une classe herite d'une autre)
+- Override: redefinir une methode de la classe parente
+- this: reference a l'objet courant
+- static: appartient a la classe, pas a l'instance
+- final: constante, ne peut pas etre modifie
+- Enum: type avec valeurs fixes predefinies
+- Lambda: (params) -> expression (fonction anonyme)
+- Try-catch: gestion des exceptions/erreurs
+
+SQL:
+- SELECT: lire des donnees
+- INSERT: ajouter des donnees
+- UPDATE: modifier des donnees
+- DELETE: supprimer des donnees
+- PRIMARY KEY: identifiant unique
+- FOREIGN KEY: reference a une autre table
+- JOIN: combiner des tables
+- CASCADE: suppression en cascade
+
+JAVAFX:
+- Stage: fenetre
+- Scene: contenu de la fenetre
+- Node: element graphique
+- Layout: conteneur (VBox, HBox, GridPane, BorderPane)
+- Control: composant interactif (Button, TextField, etc.)
+- Event: action utilisateur (clic, frappe clavier)
+- Listener: ecouteur d'evenement
+- Property: valeur observable (peut declencher des mises a jour)
+
+PATTERNS:
+- Singleton: une seule instance
+- DAO: abstraction acces donnees
+- MVC: separation Model-View-Controller
+- CRUD: Create-Read-Update-Delete
+
+================================================================================
+13. QUESTIONS FREQUENTES EN PRESENTATION
+================================================================================
+
+Q: Pourquoi utiliser SQLite plutot que MySQL?
+R: SQLite est leger, ne necessite pas de serveur separe, et stocke tout dans un
+   seul fichier. Ideal pour une application desktop mono-utilisateur.
+
+Q: Pourquoi hasher les mots de passe avec BCrypt?
+R: Securite! Si la BDD est compromise, les mots de passe restent proteges.
+   BCrypt est lent intentionnellement pour empecher les attaques par force brute.
+
+Q: C'est quoi le pattern Singleton?
+R: Un pattern qui garantit qu'une classe n'a qu'une seule instance.
+   On l'utilise pour le DatabaseManager car on veut UNE connexion BDD.
+
+Q: Pourquoi utiliser des PreparedStatement?
+R: Pour eviter les injections SQL! Les ? sont remplaces de maniere securisee.
+   Exemple d'injection: username = "admin'; DROP TABLE users;--"
+
+Q: Comment fonctionne le systeme de niveaux?
+R: 100 XP = 1 niveau. La formule: niveau = (XP / 100) + 1
+   Exemple: 250 XP -> niveau 3
+
+Q: Pourquoi separer en Model/DAO/Service/UI?
+R: Separation des responsabilites! Chaque couche a un role precis:
+   - Model: structure des donnees
+   - DAO: acces a la BDD
+   - Service: logique metier
+   - UI: interface utilisateur
+   Avantage: plus facile a maintenir, tester, modifier.
+
+Q: C'est quoi une ObservableList?
+R: Une liste qui notifie automatiquement les composants JavaFX quand elle change.
+   Quand on ajoute/supprime un element, la TableView se met a jour toute seule.
+
+Q: Comment fonctionne le cascade delete?
+R: Quand on supprime un User, tous ses Subjects sont supprimes automatiquement.
+   Et quand un Subject est supprime, ses Chapters et Exams le sont aussi.
+   C'est defini dans la BDD avec "ON DELETE CASCADE".
+
+Q: Pourquoi utiliser try-with-resources?
+R: Pour fermer automatiquement les ressources (connexions, statements).
+   Evite les fuites de memoire et de connexions.
+
+================================================================================
+                           FIN DU GUIDE
+================================================================================
+
+CONSEILS POUR LA PRESENTATION:
+1. Sois capable d'expliquer le flux complet d'une action (ex: connexion)
+2. Connais les patterns utilises et pourquoi
+3. Sache expliquer quelques requetes SQL cles
+4. Maitrise la structure du projet (quel fichier fait quoi)
+5. Prepare-toi a montrer l'application en fonctionnement
+
+BONNE CHANCE POUR TON BTS BLANC!
