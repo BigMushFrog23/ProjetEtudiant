@@ -36,7 +36,7 @@ public class UserDAO {
 
             // Get the last inserted ID using SQLite's last_insert_rowid()
             try (Statement idStmt = connection.createStatement();
-                 ResultSet rs = idStmt.executeQuery("SELECT last_insert_rowid()")) {
+                ResultSet rs = idStmt.executeQuery("SELECT last_insert_rowid()")) {
                 if (rs.next()) {
                     return findById(rs.getInt(1));
                 }
@@ -107,7 +107,7 @@ public class UserDAO {
         String sql = "SELECT * FROM users";
 
         try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+            ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
                 users.add(mapResultSetToUser(rs));
             }

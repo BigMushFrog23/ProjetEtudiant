@@ -18,6 +18,7 @@ public class Badge {
         COMPLETED_10_CHAPTERS("Knowledge Seeker", "Complete 10 chapters", "🏆"),
         LEVEL_5("Level 5", "Reach level 5", "⭐"),
         LEVEL_10("Level 10", "Reach level 10", "💎"),
+        LEVEL_15("Level 15", "Reach level 15", "x"),
         EARLY_BIRD("Early Bird", "Complete an exam before the deadline", "🦅");
 
         private final String name;

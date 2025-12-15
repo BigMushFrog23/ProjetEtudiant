@@ -120,6 +120,10 @@ public class GamificationService {
         if (user.getLevel() >= 10 && !hasBadge(userId, Badge.BadgeType.LEVEL_10)) {
             awardBadge(userId, Badge.BadgeType.LEVEL_10);
         }
+
+        if (user.getLevel() >= 15 && !hasBadge(userId, Badge.BadgeType.LEVEL_15)) {
+            awardBadge(userId, Badge.BadgeType.LEVEL_15);
+        }
     }
 
     /**
