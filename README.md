@@ -61,7 +61,7 @@ The Gamified Study Tracker helps students organize their revision by:
    - **Controller**: Service classes (`GamificationService`)
 
 ### **Technology Stack**
-- **Language**: Java 17
+- **Language**: Java 21
 - **UI Framework**: JavaFX 21
 - **Database**: SQLite (file-based, no setup required)
 - **Build Tool**: Maven
